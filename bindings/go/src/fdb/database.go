@@ -56,6 +56,7 @@ type DatabaseOptions struct {
 }
 
 func (opt DatabaseOptions) setOpt(code int, param []byte) error {
+	defer runtime.KeepAlive(opt.d)
 	return setOpt(func(p *C.uint8_t, pl C.int) C.fdb_error_t {
 		return C.fdb_database_set_option(opt.d.ptr, C.FDBDatabaseOption(code), p, pl)
 	}, param)
@@ -70,6 +71,8 @@ func (d *database) destroy() {
 // automatically creating and committing a transaction with appropriate retry
 // behavior.
 func (d Database) CreateTransaction() (Transaction, error) {
+	defer runtime.KeepAlive(d.database)
+
 	var outt *C.FDBTransaction
 
 	if err := C.fdb_database_create_transaction(d.ptr, &outt); err != 0 {

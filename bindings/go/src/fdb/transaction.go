@@ -27,6 +27,7 @@ package fdb
  #include <foundationdb/fdb_c.h>
 */
 import "C"
+import "runtime"
 
 // A ReadTransaction can asynchronously read from a FoundationDB
 // database. Transaction and Snapshot both satisfy the ReadTransaction
@@ -81,6 +82,7 @@ type TransactionOptions struct {
 }
 
 func (opt TransactionOptions) setOpt(code int, param []byte) error {
+	defer runtime.KeepAlive(opt.transaction)
 	return setOpt(func(p *C.uint8_t, pl C.int) C.fdb_error_t {
 		return C.fdb_transaction_set_option(opt.transaction.ptr, C.FDBTransactionOption(code), p, pl)
 	}, param)
@@ -154,6 +156,7 @@ func (t Transaction) ReadTransact(f func(ReadTransaction) (interface{}, error)) 
 // error, the commit may have occurred or may occur in the future. This can make
 // it more difficult to reason about the order in which transactions occur.
 func (t Transaction) Cancel() {
+	defer runtime.KeepAlive(t.transaction)
 	C.fdb_transaction_cancel(t.ptr)
 }
 
@@ -162,6 +165,7 @@ func (t Transaction) Cancel() {
 // is used (the transactions reads will be causally consistent only if the
 // provided read version has that property).
 func (t Transaction) SetReadVersion(version int64) {
+	defer runtime.KeepAlive(t.transaction)
 	C.fdb_transaction_set_read_version(t.ptr, C.int64_t(version))
 }
 
@@ -173,6 +177,7 @@ func (t Transaction) SetReadVersion(version int64) {
 // For more information on snapshot reads, see
 // https://apple.github.io/foundationdb/developer-guide.html#snapshot-reads.
 func (t Transaction) Snapshot() Snapshot {
+	defer runtime.KeepAlive(t.transaction)
 	return Snapshot{t.transaction}
 }
 
@@ -184,6 +189,7 @@ func (t Transaction) Snapshot() Snapshot {
 // Typical code will not use OnError directly. (Database).Transact uses
 // OnError internally to implement a correct retry loop.
 func (t Transaction) OnError(e Error) FutureNil {
+	defer runtime.KeepAlive(t.transaction)
 	return &futureNil{newFuture(C.fdb_transaction_on_error(t.ptr, C.fdb_error_t(e.Code)))}
 }
 
@@ -198,6 +204,7 @@ func (t Transaction) OnError(e Error) FutureNil {
 // see
 // https://apple.github.io/foundationdb/developer-guide.html#transactions-with-unknown-results.
 func (t Transaction) Commit() FutureNil {
+	defer runtime.KeepAlive(t.transaction)
 	return &futureNil{newFuture(C.fdb_transaction_commit(t.ptr))}
 }
 
@@ -231,11 +238,13 @@ func (t Transaction) Commit() FutureNil {
 // transaction that creates it, any watch that is no longer needed should be
 // cancelled by calling (FutureNil).Cancel on its returned future.
 func (t Transaction) Watch(key KeyConvertible) FutureNil {
+	defer runtime.KeepAlive(t.transaction)
 	kb := key.FDBKey()
 	return &futureNil{newFuture(C.fdb_transaction_watch(t.ptr, byteSliceToPtr(kb), C.int(len(kb))))}
 }
 
 func (t *transaction) get(key []byte, snapshot int) FutureByteSlice {
+	defer runtime.KeepAlive(t)
 	return &futureByteSlice{future: newFuture(C.fdb_transaction_get(t.ptr, byteSliceToPtr(key), C.int(len(key)), C.fdb_bool_t(snapshot)))}
 }
 
@@ -247,6 +256,8 @@ func (t Transaction) Get(key KeyConvertible) FutureByteSlice {
 }
 
 func (t *transaction) doGetRange(r Range, options RangeOptions, snapshot bool, iteration int) futureKeyValueArray {
+	defer runtime.KeepAlive(t)
+
 	begin, end := r.FDBRangeKeySelectors()
 	bsel := begin.FDBKeySelector()
 	esel := end.FDBKeySelector()
@@ -278,6 +289,7 @@ func (t Transaction) GetRange(r Range, options RangeOptions) RangeResult {
 }
 
 func (t *transaction) getReadVersion() FutureInt64 {
+	defer runtime.KeepAlive(t)
 	return &futureInt64{newFuture(C.fdb_transaction_get_read_version(t.ptr))}
 }
 
@@ -292,6 +304,7 @@ func (t Transaction) GetReadVersion() FutureInt64 {
 // with key. Set returns immediately, having modified the snapshot of the
 // database represented by the transaction.
 func (t Transaction) Set(key KeyConvertible, value []byte) {
+	defer runtime.KeepAlive(t.transaction)
 	kb := key.FDBKey()
 	C.fdb_transaction_set(t.ptr, byteSliceToPtr(kb), C.int(len(kb)), byteSliceToPtr(value), C.int(len(value)))
 }
@@ -300,6 +313,7 @@ func (t Transaction) Set(key KeyConvertible, value []byte) {
 // exists. Clear returns immediately, having modified the snapshot of the
 // database represented by the transaction.
 func (t Transaction) Clear(key KeyConvertible) {
+	defer runtime.KeepAlive(t.transaction)
 	kb := key.FDBKey()
 	C.fdb_transaction_clear(t.ptr, byteSliceToPtr(kb), C.int(len(kb)))
 }
@@ -308,6 +322,7 @@ func (t Transaction) Clear(key KeyConvertible) {
 // associated values. ClearRange returns immediately, having modified the
 // snapshot of the database represented by the transaction.
 func (t Transaction) ClearRange(er ExactRange) {
+	defer runtime.KeepAlive(t.transaction)
 	begin, end := er.FDBRangeKeys()
 	bkb := begin.FDBKey()
 	ekb := end.FDBKey()
@@ -322,6 +337,7 @@ func (t Transaction) ClearRange(er ExactRange) {
 // transaction which reads keys and then sets them to their current values may
 // be optimized to a read-only transaction.
 func (t Transaction) GetCommittedVersion() (int64, error) {
+	defer runtime.KeepAlive(t.transaction)
 	var version C.int64_t
 
 	if err := C.fdb_transaction_get_committed_version(t.ptr, &version); err != 0 {
@@ -339,6 +355,7 @@ func (t Transaction) GetCommittedVersion() (int64, error) {
 // mind that a transaction which reads keys and then sets them to their current
 // values may be optimized to a read-only transaction.
 func (t Transaction) GetVersionstamp() FutureKey {
+	defer runtime.KeepAlive(t.transaction)
 	return &futureKey{future: newFuture(C.fdb_transaction_get_versionstamp(t.ptr))}
 }
 
@@ -346,6 +363,7 @@ func (t Transaction) GetVersionstamp() FutureKey {
 // state. This is logically equivalent to destroying the transaction and
 // creating a new one.
 func (t Transaction) Reset() {
+	defer runtime.KeepAlive(t.transaction)
 	C.fdb_transaction_reset(t.ptr)
 }
 
@@ -357,6 +375,7 @@ func boolToInt(b bool) int {
 }
 
 func (t *transaction) getKey(sel KeySelector, snapshot int) FutureKey {
+	defer runtime.KeepAlive(t)
 	key := sel.Key.FDBKey()
 	return &futureKey{future: newFuture(C.fdb_transaction_get_key(t.ptr, byteSliceToPtr(key), C.int(len(key)), C.fdb_bool_t(boolToInt(sel.OrEqual)), C.int(sel.Offset), C.fdb_bool_t(snapshot)))}
 }
@@ -375,10 +394,12 @@ func (t Transaction) GetKey(sel Selectable) FutureKey {
 }
 
 func (t Transaction) atomicOp(key []byte, param []byte, code int) {
+	defer runtime.KeepAlive(t.transaction)
 	C.fdb_transaction_atomic_op(t.ptr, byteSliceToPtr(key), C.int(len(key)), byteSliceToPtr(param), C.int(len(param)), C.FDBMutationType(code))
 }
 
 func addConflictRange(t *transaction, er ExactRange, crtype conflictRangeType) error {
+	defer runtime.KeepAlive(t)
 	begin, end := er.FDBRangeKeys()
 	bkb := begin.FDBKey()
 	ekb := end.FDBKey()
@@ -445,6 +466,7 @@ func (t Transaction) Options() TransactionOptions {
 }
 
 func localityGetAddressesForKey(t *transaction, key KeyConvertible) FutureStringSlice {
+	defer runtime.KeepAlive(t)
 	kb := key.FDBKey()
 	return &futureStringSlice{newFuture(C.fdb_transaction_get_addresses_for_key(t.ptr, byteSliceToPtr(kb), C.int(len(kb))))}
 }
