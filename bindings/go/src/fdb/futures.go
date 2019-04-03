@@ -100,15 +100,18 @@ func fdb_future_block_until_ready(f *C.FDBFuture) {
 	m.Lock()
 }
 
-func (f future) BlockUntilReady() {
+func (f *future) BlockUntilReady() {
+	defer runtime.KeepAlive(f)
 	fdb_future_block_until_ready(f.ptr)
 }
 
-func (f future) IsReady() bool {
+func (f *future) IsReady() bool {
+	defer runtime.KeepAlive(f)
 	return C.fdb_future_is_ready(f.ptr) != 0
 }
 
-func (f future) Cancel() {
+func (f *future) Cancel() {
+	defer runtime.KeepAlive(f)
 	C.fdb_future_cancel(f.ptr)
 }
 
@@ -140,6 +143,8 @@ type futureByteSlice struct {
 
 func (f *futureByteSlice) Get() ([]byte, error) {
 	f.o.Do(func() {
+		defer runtime.KeepAlive(f.future)
+
 		var present C.fdb_bool_t
 		var value *C.uint8_t
 		var length C.int
@@ -195,6 +200,8 @@ type futureKey struct {
 
 func (f *futureKey) Get() (Key, error) {
 	f.o.Do(func() {
+		defer runtime.KeepAlive(f.future)
+
 		var value *C.uint8_t
 		var length C.int
 
@@ -242,6 +249,7 @@ type futureNil struct {
 }
 
 func (f futureNil) Get() error {
+	defer runtime.KeepAlive(f.future)
 	f.BlockUntilReady()
 	if err := C.fdb_future_get_error(f.ptr); err != 0 {
 		return Error{int(err)}
@@ -273,6 +281,7 @@ func stringRefToSlice(ptr unsafe.Pointer) []byte {
 }
 
 func (f futureKeyValueArray) Get() ([]KeyValue, bool, error) {
+	defer runtime.KeepAlive(f.future)
 	f.BlockUntilReady()
 
 	var kvs *C.FDBKeyValue
@@ -317,6 +326,7 @@ type futureInt64 struct {
 }
 
 func (f futureInt64) Get() (int64, error) {
+	defer runtime.KeepAlive(f.future)
 	f.BlockUntilReady()
 
 	var ver C.int64_t
@@ -357,6 +367,7 @@ type futureStringSlice struct {
 }
 
 func (f futureStringSlice) Get() ([]string, error) {
+	defer runtime.KeepAlive(f.future)
 	f.BlockUntilReady()
 
 	var strings **C.char
