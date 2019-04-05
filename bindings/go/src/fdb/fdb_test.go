@@ -24,8 +24,9 @@ package fdb_test
 
 import (
 	"fmt"
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"testing"
+
+	"github.com/segmentio/foundationdb/bindings/go/src/fdb"
 )
 
 func ExampleOpenDefault() {
