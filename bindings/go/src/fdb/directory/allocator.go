@@ -25,8 +25,8 @@ package directory
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
-	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
+	"github.com/segmentio/foundationdb/bindings/go/src/fdb"
+	"github.com/segmentio/foundationdb/bindings/go/src/fdb/subspace"
 	"math/rand"
 	"sync"
 )
