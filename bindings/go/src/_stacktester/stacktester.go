@@ -25,8 +25,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
-	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"log"
 	"math/big"
 	"os"
@@ -37,6 +35,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/segmentio/foundationdb/bindings/go/src/fdb"
+	"github.com/segmentio/foundationdb/bindings/go/src/fdb/tuple"
 )
 
 const verbose bool = false
